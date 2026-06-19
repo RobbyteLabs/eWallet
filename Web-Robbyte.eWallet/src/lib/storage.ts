@@ -48,7 +48,16 @@ export const cacheEncryptedBlocks = (uid: string, blocks: EncryptedAppBlocks) =>
 export const loadCachedBlocks = (uid: string) => {
   const raw = localStorage.getItem(cacheKey(uid));
   if (!raw) return {};
-  return JSON.parse(raw) as EncryptedAppBlocks;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("Invalid encrypted cache shape");
+    }
+    return parsed as EncryptedAppBlocks;
+  } catch {
+    localStorage.removeItem(cacheKey(uid));
+    return {};
+  }
 };
 
 export const clearCachedBlocks = (uid: string) => {

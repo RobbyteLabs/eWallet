@@ -1,9 +1,6 @@
-import { Button, Row, Col } from "react-bootstrap";
-import type { EncryptedAppBlocks } from "../../lib/storage";
-import { views } from "../../utils";
-import { Icon } from "../layout/Icon";
+import { Row, Col } from "react-bootstrap";
 import { useT } from "../../contexts";
-import { ActionCard, EmptyCard, ViewTitle } from "../ui/SharedComponents";
+import { ActionCard, ViewTitle } from "../ui/SharedComponents";
 
 export function BackupView({
   onExport,

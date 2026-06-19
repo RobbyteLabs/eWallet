@@ -1,5 +1,5 @@
 import { createContext, useContext, useCallback } from "react";
-import type { Language, TranslationKey } from "./types";
+import type { Language } from "./types";
 import { formatCurrency, formatDate } from "./lib/format";
 import { translate } from "./lib/i18n";
 

@@ -1,14 +1,14 @@
 import { Button, Card, Form, Row, Col, ProgressBar, ListGroup } from "react-bootstrap";
 import type { AppData, ConfirmOptions, CreditCard, CardPurchase } from "../../types";
 import type { FormEvent } from "react";
-import { views, toStringValue, toNumber, createId } from "../../utils";
+import { toStringValue, toNumber, createId } from "../../utils";
 import { expenseCategories } from "../../data/defaults";
 import { localizeDataLabel } from "../../lib/i18n";
 import { Icon } from "../layout/Icon";
 import { useDateFormatter, useLanguage, useMoney, useT } from "../../contexts";
-import { getUsedCardLimit, getMonthlyCardPayment } from '../../lib/calculations';
-import { todayIso } from "../../lib/format";
-import { SectionTitle, ViewTitle, ActionCard, EmptyState, AmountBreakdown, StatPair, EmptyCard } from "../ui/SharedComponents";
+import { getUsedCardLimit, getMonthlyCardPayment, isCardPaidForMonth } from '../../lib/calculations';
+import { monthKey, todayIso } from "../../lib/format";
+import { ViewTitle, StatPair, EmptyCard } from "../ui/SharedComponents";
 
 export function CardsView({
   data,
@@ -22,6 +22,8 @@ export function CardsView({
   const money = useMoney();
   const t = useT();
   const { language } = useLanguage();
+  const date = useDateFormatter();
+  const currentMonth = monthKey();
 
   const addCard = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -44,7 +46,7 @@ export function CardsView({
   ) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const purchase = {
+    const purchase: CardPurchase = {
       id: createId("purchase"),
       description: toStringValue(form.get("description")),
       amount: toNumber(form.get("amount")),
@@ -113,6 +115,7 @@ export function CardsView({
           const used = getUsedCardLimit(card);
           const monthly = getMonthlyCardPayment(card);
           const usage = card.limit > 0 ? Math.min((used / card.limit) * 100, 100) : 0;
+          const paidThisMonth = isCardPaidForMonth(card, currentMonth);
           return (
             <Col key={card.id}>
               <Card className="h-100 shadow-sm">
@@ -147,6 +150,29 @@ export function CardsView({
                   <ProgressBar now={usage} className="mb-3" />
                   <StatPair label={t("cards.monthlyPayment")} value={money(monthly)} />
                   <StatPair label={t("cards.closePayment")} value={`${card.closingDay} / ${card.paymentDay}`} />
+                  <StatPair
+                    label={t("cards.lastPayment")}
+                    value={card.lastPaymentDate ? date(card.lastPaymentDate) : t("common.due")}
+                  />
+                  <div className="d-flex flex-wrap gap-2 mt-3">
+                    <Button
+                      variant={paidThisMonth ? "success" : "outline-success"}
+                      disabled={paidThisMonth || monthly === 0}
+                      onClick={() =>
+                        updateData((current) => ({
+                          ...current,
+                          cards: current.cards.map((item) =>
+                            item.id === card.id
+                              ? { ...item, lastPaymentDate: todayIso() }
+                              : item,
+                          ),
+                        }))
+                      }
+                    >
+                      <Icon name="check2" />{" "}
+                      {paidThisMonth ? t("common.paid") : t("cards.markMonthlyPaid")}
+                    </Button>
+                  </div>
 
                   <Form className="mt-3" onSubmit={(event) => addPurchase(event, card.id)}>
                     <Row xs={1} md={2} className="g-2 align-items-end">
@@ -197,6 +223,7 @@ export function CardsView({
                             variant="outline-success"
                             size="sm"
                             title={t("cards.payInstallment")}
+                            disabled={purchase.paidInstallments >= purchase.installments}
                             onClick={() =>
                               updateData((current) => ({
                                 ...current,
@@ -222,6 +249,35 @@ export function CardsView({
                             }
                           >
                             <Icon name="check2" />
+                          </Button>
+                          <Button
+                            variant="outline-danger"
+                            size="sm"
+                            title={t("cards.deletePurchaseTitle")}
+                            onClick={() =>
+                              confirm({
+                                title: t("cards.deletePurchaseTitle"),
+                                message: `${t("cards.deletePurchaseMessage")}: "${purchase.description}".`,
+                                confirmLabel: t("common.delete"),
+                                variant: "danger",
+                                onConfirm: () =>
+                                  updateData((current) => ({
+                                    ...current,
+                                    cards: current.cards.map((item) =>
+                                      item.id === card.id
+                                        ? {
+                                            ...item,
+                                            purchases: item.purchases.filter(
+                                              (entry) => entry.id !== purchase.id,
+                                            ),
+                                          }
+                                        : item,
+                                    ),
+                                  })),
+                              })
+                            }
+                          >
+                            <Icon name="trash" />
                           </Button>
                         </div>
                       </ListGroup.Item>

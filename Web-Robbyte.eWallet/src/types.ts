@@ -36,6 +36,7 @@ export interface Expense {
   dueDay?: number;
   date?: string;
   paid: boolean;
+  lastPaidMonth?: string;
   frequency: Frequency;
   priority?: ExpensePriority;
   paymentMethod?: string;
@@ -50,7 +51,8 @@ export interface Loan {
   monthlyPayment: number;
   dueDay: number;
   nextDueDate: string;
-  paidThisMonth: boolean;
+  paidThisMonth?: boolean;
+  lastPaidMonth?: string;
 }
 
 export interface CreditCard {

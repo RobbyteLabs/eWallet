@@ -1,7 +1,7 @@
 import type { SyncState } from "../../types";
 import { Badge, Spinner } from "react-bootstrap";
 import { Icon } from "./Icon";
-import { useDateFormatter, useLanguage, useT } from "../../contexts";
+import { useLanguage, useT } from "../../contexts";
 
 export function Header({
   sync,

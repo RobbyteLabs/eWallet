@@ -1,5 +1,15 @@
-import type { AppData, CreditCard, Expense, MonthlyReport, PaymentDue } from "../types";
+import type {
+  AppData,
+  CreditCard,
+  Expense,
+  Income,
+  Loan,
+  MonthlyReport,
+  PaymentDue,
+} from "../types";
 import { monthKey, todayIso } from "./format";
+
+const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 const dateFromDay = (day: number, base = new Date()) => {
   const safeDay = Math.min(Math.max(day, 1), 31);
@@ -9,6 +19,67 @@ const dateFromDay = (day: number, base = new Date()) => {
   }
   return date.toISOString().slice(0, 10);
 };
+
+export const monthKeyFromIso = (date?: string, fallback = monthKey()) =>
+  date && isoDatePattern.test(date) ? date.slice(0, 7) : fallback;
+
+const dateInMonth = (date: string | undefined, targetMonth: string) =>
+  Boolean(date && date.startsWith(targetMonth));
+
+const formatLocalIsoDate = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+    date.getDate(),
+  ).padStart(2, "0")}`;
+
+export const addMonthsToIsoDate = (
+  date: string,
+  months = 1,
+  preferredDay?: number,
+) => {
+  const [year, month, day] = isoDatePattern.test(date)
+    ? date.split("-").map(Number)
+    : todayIso().split("-").map(Number);
+  const target = new Date(year, month - 1 + months, 1);
+  const lastDayOfTargetMonth = new Date(
+    target.getFullYear(),
+    target.getMonth() + 1,
+    0,
+  ).getDate();
+  target.setDate(
+    Math.min(
+      Math.max(preferredDay || day || 1, 1),
+      lastDayOfTargetMonth,
+    ),
+  );
+  return formatLocalIsoDate(target);
+};
+
+export const isExpenseInMonth = (
+  expense: Expense,
+  targetMonth = monthKey(),
+) =>
+  expense.frequency === "once"
+    ? dateInMonth(expense.date, targetMonth)
+    : true;
+
+export const isIncomeInMonth = (income: Income, targetMonth = monthKey()) =>
+  income.recurring || dateInMonth(income.date, targetMonth);
+
+export const isExpensePaidForMonth = (
+  expense: Expense,
+  targetMonth = monthKey(),
+) =>
+  expense.frequency === "once"
+    ? expense.paid
+    : expense.lastPaidMonth === targetMonth;
+
+export const isLoanPaidForMonth = (loan: Loan, targetMonth = monthKey()) =>
+  loan.lastPaidMonth === targetMonth;
+
+export const isCardPaidForMonth = (
+  card: CreditCard,
+  targetMonth = monthKey(),
+) => Boolean(card.lastPaymentDate?.startsWith(targetMonth));
 
 export const getMonthlyCardPayment = (card: CreditCard) =>
   card.purchases.reduce((sum, purchase) => {
@@ -35,6 +106,7 @@ const expenseDue = (expense: Expense): string => {
 
 export const getPaymentDues = (data: AppData): PaymentDue[] => {
   const today = todayIso();
+  const currentMonth = monthKey();
   const expenseDues: PaymentDue[] = data.expenses.map((expense) => {
     const dueDate = expenseDue(expense);
     return {
@@ -43,22 +115,30 @@ export const getPaymentDues = (data: AppData): PaymentDue[] => {
       source: "expense",
       amount: expense.amount,
       dueDate,
-      status: expense.paid ? "paid" : dueDate < today ? "overdue" : "due",
+      status: isExpensePaidForMonth(expense, currentMonth)
+        ? "paid"
+        : dueDate < today
+          ? "overdue"
+          : "due",
     };
   });
 
-  const loanDues: PaymentDue[] = data.loans.map((loan) => ({
-    id: `loan-${loan.id}`,
-    label: loan.lender,
-    source: "loan",
-    amount: loan.monthlyPayment,
-    dueDate: loan.nextDueDate || dateFromDay(loan.dueDay),
-    status: loan.paidThisMonth
-      ? "paid"
-      : (loan.nextDueDate || dateFromDay(loan.dueDay)) < today
-        ? "overdue"
-        : "due",
-  }));
+  const loanDues: PaymentDue[] = data.loans.map((loan) => {
+    const dueDate = loan.nextDueDate || dateFromDay(loan.dueDay);
+    const dueMonth = monthKeyFromIso(dueDate);
+    return {
+      id: `loan-${loan.id}`,
+      label: loan.lender,
+      source: "loan",
+      amount: loan.monthlyPayment,
+      dueDate,
+      status: isLoanPaidForMonth(loan, dueMonth)
+        ? "paid"
+        : dueDate < today
+          ? "overdue"
+          : "due",
+    };
+  });
 
   const cardDues: PaymentDue[] = data.cards.map((card) => {
     const dueDate = dateFromDay(card.paymentDay);
@@ -70,13 +150,11 @@ export const getPaymentDues = (data: AppData): PaymentDue[] => {
       amount: payment,
       dueDate,
       status:
-        payment === 0
+        payment === 0 || isCardPaidForMonth(card, currentMonth)
           ? "paid"
-          : card.lastPaymentDate?.startsWith(monthKey())
-            ? "paid"
-            : dueDate < today
-              ? "overdue"
-              : "due",
+          : dueDate < today
+            ? "overdue"
+            : "due",
     };
   });
 
@@ -88,10 +166,16 @@ export const getPaymentDues = (data: AppData): PaymentDue[] => {
 export const getMonthlyReport = (data: AppData): MonthlyReport => {
   const currentMonth = monthKey();
   const fixedExpenses = data.expenses
-    .filter((expense) => expense.kind === "fixed")
+    .filter(
+      (expense) =>
+        expense.kind === "fixed" && isExpenseInMonth(expense, currentMonth),
+    )
     .reduce((sum, expense) => sum + expense.amount, 0);
   const variableExpenses = data.expenses
-    .filter((expense) => expense.kind === "variable")
+    .filter(
+      (expense) =>
+        expense.kind === "variable" && isExpenseInMonth(expense, currentMonth),
+    )
     .reduce((sum, expense) => sum + expense.amount, 0);
   const loanPayments = data.loans.reduce(
     (sum, loan) => sum + loan.monthlyPayment,
@@ -102,14 +186,12 @@ export const getMonthlyReport = (data: AppData): MonthlyReport => {
     0,
   );
   const trackedIncome = data.incomes
-    .filter(
-      (income) => income.recurring || income.date.startsWith(currentMonth),
-    )
+    .filter((income) => isIncomeInMonth(income, currentMonth))
     .reduce((sum, income) => sum + income.amount, 0);
   const income = data.settings.monthlyIncome + trackedIncome;
 
   return {
-    monthKey: monthKey(),
+    monthKey: currentMonth,
     income,
     fixedExpenses,
     variableExpenses,
@@ -151,19 +233,27 @@ export const groupAmounts = <T>(
     .sort((a, b) => b.amount - a.amount);
 
 export const getExpenseCategoryTotals = (data: AppData) =>
-  groupAmounts(data.expenses, (expense) => expense.category, (expense) => expense.amount);
+  groupAmounts(
+    data.expenses.filter((expense) => isExpenseInMonth(expense)),
+    (expense) => expense.category,
+    (expense) => expense.amount,
+  );
 
 export const getIncomeCategoryTotals = (data: AppData) =>
   [
     ...(data.settings.monthlyIncome > 0
       ? [{ label: "Ingreso base", amount: data.settings.monthlyIncome }]
       : []),
-    ...groupAmounts(data.incomes, (income) => income.category, (income) => income.amount),
+    ...groupAmounts(
+      data.incomes.filter((income) => isIncomeInMonth(income)),
+      (income) => income.category,
+      (income) => income.amount,
+    ),
   ].sort((a, b) => b.amount - a.amount);
 
 export const getExpensePriorityTotals = (data: AppData) =>
   groupAmounts(
-    data.expenses,
+    data.expenses.filter((expense) => isExpenseInMonth(expense)),
     (expense) => expense.priority || "essential",
     (expense) => expense.amount,
   );

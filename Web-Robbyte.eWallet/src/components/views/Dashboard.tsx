@@ -1,9 +1,7 @@
-import { Button, Card, Row, Col } from "react-bootstrap";
+import { Card, Row, Col } from "react-bootstrap";
 import type { AppData } from '../../types';
-import { views } from "../../utils";
-import { Icon } from "../layout/Icon";
-import { useDateFormatter, useLanguage, useMoney, useT } from "../../contexts";
-import { MetricCard, BudgetBar, SectionTitle, ViewTitle, ActionCard, EmptyState, PaymentList } from "../ui/SharedComponents";
+import { useMoney, useT } from "../../contexts";
+import { MetricCard, BudgetBar, SectionTitle, ViewTitle, PaymentList } from "../ui/SharedComponents";
 import { getMonthlyReport, getPaymentDues, getUpcomingAlerts } from '../../lib/calculations';
 import { getCurrencyOption } from '../../data/defaults';
 

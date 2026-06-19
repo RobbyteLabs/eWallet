@@ -1,9 +1,8 @@
-import type { AppData, PaymentDue } from "../../types";
 import { Card, ListGroup } from "react-bootstrap";
-import { sourceLabel, expensePriorityLabel } from "../../utils";
+import { sourceLabel } from "../../utils";
 import { getPaymentDues } from "../../lib/calculations";
 import { useMoney, useT, useLanguage } from "../../contexts";
-import { ViewTitle, PaymentList, StatusBadge, EmptyState } from "../ui/SharedComponents";
+import { ViewTitle, StatusBadge, EmptyState } from "../ui/SharedComponents";
 
 export function CalendarView({ dues }: { dues: ReturnType<typeof getPaymentDues> }) {
   const money = useMoney();

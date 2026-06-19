@@ -1,12 +1,13 @@
 import { Button, Card, Form, Row, Col, ListGroup, Badge } from "react-bootstrap";
 import type { AppData, Expense, ExpenseKind, ExpensePriority, Frequency, ConfirmOptions } from "../../types";
 import type { FormEvent } from "react";
-import { views, toStringValue, toNumber, createId } from "../../utils";
-import { todayIso } from "../../lib/format";
+import { toStringValue, toNumber, createId } from "../../utils";
+import { monthKey, todayIso } from "../../lib/format";
 import { Icon } from "../layout/Icon";
-import { useDateFormatter, useLanguage, useMoney, useT } from "../../contexts";
+import { useLanguage, useMoney, useT } from "../../contexts";
 import { expenseCategories, expensePriorities, paymentMethods } from "../../data/defaults";
 import { expensePriorityLabel, localizeDataLabel } from "../../utils";
+import { isExpensePaidForMonth } from "../../lib/calculations";
 import { SectionTitle, ViewTitle, EmptyState, StatusBadge } from "../ui/SharedComponents";
 
 export function ExpensesView({
@@ -21,6 +22,7 @@ export function ExpensesView({
   const money = useMoney();
   const t = useT();
   const { language } = useLanguage();
+  const currentMonth = monthKey();
 
   const addExpense = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -154,11 +156,14 @@ export function ExpensesView({
         <Card.Body>
           <SectionTitle title={t("expenses.records")} count={data.expenses.length} />
           <ListGroup variant="flush">
-            {data.expenses.map((expense) => (
-              <ListGroup.Item
-                className="px-0 d-flex flex-column flex-md-row gap-3 align-items-md-center justify-content-between"
-                key={expense.id}
-              >
+            {data.expenses.map((expense) => {
+              const paidForMonth = isExpensePaidForMonth(expense, currentMonth);
+
+              return (
+                <ListGroup.Item
+                  className="px-0 d-flex flex-column flex-md-row gap-3 align-items-md-center justify-content-between"
+                  key={expense.id}
+                >
                 <div className="min-w-0">
                   <strong className="d-block">{expense.name}</strong>
                   <span className="text-secondary">
@@ -184,7 +189,7 @@ export function ExpensesView({
                 </div>
                 <div className="d-flex flex-wrap gap-2 align-items-center justify-content-md-end">
                   <strong>{money(expense.amount)}</strong>
-                  <StatusBadge status={expense.paid ? "paid" : "due"} />
+                  <StatusBadge status={paidForMonth ? "paid" : "due"} />
                   <Button
                     variant="outline-success"
                     size="sm"
@@ -194,7 +199,16 @@ export function ExpensesView({
                         ...current,
                         expenses: current.expenses.map((item) =>
                           item.id === expense.id
-                            ? { ...item, paid: !item.paid }
+                            ? item.frequency === "once"
+                              ? { ...item, paid: !item.paid }
+                              : {
+                                  ...item,
+                                  paid: false,
+                                  lastPaidMonth:
+                                    item.lastPaidMonth === currentMonth
+                                      ? undefined
+                                      : currentMonth,
+                                }
                             : item,
                         ),
                       }))
@@ -225,8 +239,9 @@ export function ExpensesView({
                     <Icon name="trash" />
                   </Button>
                 </div>
-              </ListGroup.Item>
-            ))}
+                </ListGroup.Item>
+              );
+            })}
           </ListGroup>
           {data.expenses.length === 0 && <EmptyState text={t("expenses.empty")} />}
         </Card.Body>

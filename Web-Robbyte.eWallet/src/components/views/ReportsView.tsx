@@ -1,8 +1,7 @@
 import { Card, Row, Col } from "react-bootstrap";
-import type { AppData, MonthlyReport, ExpenseCategoryTotal,
-  ExpensePriority } from "../../types";
+import type { AppData, ExpensePriority } from "../../types";
 import { useMoney, useT } from "../../contexts";
-import { SectionTitle, ReportLine, StatPair, EmptyCard, ViewTitle, MetricCard, AmountBreakdown } from "../ui/SharedComponents";
+import { SectionTitle, ReportLine, ViewTitle, MetricCard, AmountBreakdown } from "../ui/SharedComponents";
 import { getExpenseCategoryTotals, getExpensePriorityTotals, getIncomeCategoryTotals, getMonthlyReport  } from "../../lib/calculations";
 import { expensePriorityLabel } from "../../utils";
 

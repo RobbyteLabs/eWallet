@@ -1,26 +1,26 @@
 ﻿import { Button, Card, Form, Row, Col } from "react-bootstrap";
-import type { AppData, UserSettings, Language, ConfirmOptions } from "../../types";
+import type { AppData, Language, ConfirmOptions } from "../../types";
 import type { FormEvent } from "react";
 import { toStringValue, toNumber } from "../../utils";
 import { Icon } from "../layout/Icon";
-import { useDateFormatter, useLanguage, useMoney, useT } from "../../contexts";
+import { useT } from "../../contexts";
 import { getCurrencyOption, currencyOptions } from "../../data/defaults";
 import { languageOptions, getLanguageOption } from "../../lib/i18n";
-import { SectionTitle, ViewTitle, ActionCard } from "../ui/SharedComponents";
+import { SectionTitle, ViewTitle } from "../ui/SharedComponents";
 
 export function SettingsView({
   data,
   updateData,
-  confirm,
 }: {
   data: AppData;
   updateData: (producer: (current: AppData) => AppData) => Promise<void>;
   confirm: (options: ConfirmOptions) => void;
 }) {
-  const money = useMoney();
   const t = useT();
-  const date = useDateFormatter();
-  const selectedCurrency = getCurrencyOption(data.settings.currencyCountry);
+  const selectedCurrency = getCurrencyOption(
+    data.settings.currency,
+    data.settings.currencyCountry,
+  );
   const selectedLanguage = getLanguageOption(data.settings.language);
 
   const saveSettings = async (event: FormEvent<HTMLFormElement>) => {

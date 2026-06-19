@@ -9,9 +9,8 @@ import { defaultAppData } from './data/defaults';
 import { getMonthlyReport, getPaymentDues, getUpcomingAlerts } from './lib/calculations';
 import { deriveEncryptionKey, encryptedBackupName, generateSalt } from './lib/crypto';
 import { auth, googleProvider } from "./lib/firebase";
-import { todayIso } from './lib/format';
 
-import { translate, type TranslationKey, getLanguageOption } from './lib/i18n';
+import { translate, getLanguageOption } from './lib/i18n';
 import { createId } from './lib/ids';
 import {
   cacheEncryptedBlocks, clearCachedBlocks, decryptAppData,
@@ -21,8 +20,8 @@ import type { EncryptedAppBlocks } from "./lib/storage";
 
 import type { AppData, AppView, SyncState, ConfirmOptions } from './types';
 
-import { MoneyFormatContext, LanguageContext, useMoney, useT, useDateFormatter } from "./contexts";
-import { views, initialSync, readFirstSalt, toNumber, toStringValue, authErrorMessage, getCurrencyOption } from "./utils";
+import { MoneyFormatContext, LanguageContext } from "./contexts";
+import { initialSync, readFirstSalt, authErrorMessage, getCurrencyOption } from "./utils";
 
 import { AuthShell } from "./components/layout/AuthShell";
 import { CenteredStatus } from "./components/layout/CenteredStatus";
@@ -50,6 +49,12 @@ interface AppToast {
   tone: ToastTone;
   title: string;
   message: string;
+}
+
+interface BackupFile {
+  uid?: string;
+  salt?: string;
+  encryptedData?: EncryptedAppBlocks;
 }
 export default function App() {
 
@@ -296,6 +301,7 @@ export default function App() {
             version: 1,
             exportedAt: new Date().toISOString(),
             uid: user?.uid,
+            salt,
             encryptedData: blocks,
           },
           null,
@@ -314,23 +320,35 @@ export default function App() {
   };
 
   const importBackup = async (event: ChangeEvent<HTMLInputElement>) => {
-    if (!user || !cryptoKey) return;
+    if (!user || !cryptoKey || !salt) return;
     const file = event.target.files?.[0];
     if (!file) return;
 
     try {
-      const parsed = JSON.parse(await file.text()) as {
-        encryptedData?: EncryptedAppBlocks;
-      };
+      const parsed = JSON.parse(await file.text()) as BackupFile;
       const blocks = parsed.encryptedData;
       if (!blocks || !hasAnyRemoteData(blocks)) {
         throw new Error("El archivo no contiene datos cifrados validos.");
       }
 
-      const nextData = await decryptAppData(blocks, cryptoKey);
+      const backupSalt = parsed.salt || readFirstSalt(blocks);
+      if (!backupSalt) {
+        throw new Error("El backup no incluye salt de cifrado.");
+      }
+
+      const backupUid = parsed.uid || user.uid;
+      let importKey = cryptoKey;
+      if (backupSalt !== salt || backupUid !== user.uid) {
+        const backupPin = window.prompt(t("backup.pinPrompt")) || "";
+        if (!backupPin) {
+          throw new Error(t("backup.pinRequired"));
+        }
+        importKey = await deriveEncryptionKey(backupPin, backupUid, backupSalt);
+      }
+
+      const nextData = await decryptAppData(blocks, importKey);
       setData(nextData);
-      cacheEncryptedBlocks(user.uid, blocks);
-      await saveRemoteBlocks(user.uid, blocks);
+      await persistData(nextData);
       setSync({
         status: "idle",
         message: t("sync.imported"),

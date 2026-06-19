@@ -1,11 +1,16 @@
-import { Button, Card, Form, Row, Col, Badge } from "react-bootstrap";
+import { Button, Card, Form, Row, Col } from "react-bootstrap";
 import type { AppData, Loan, ConfirmOptions } from "../../types";
 import type { FormEvent } from "react";
-import { views, toStringValue, toNumber, createId } from "../../utils";
+import { toStringValue, toNumber, createId } from "../../utils";
 import { Icon } from "../layout/Icon";
 import { useDateFormatter, useMoney, useT } from "../../contexts";
-import { todayIso } from "../../lib/format";
-import { SectionTitle, ViewTitle, EmptyState, StatusBadge } from "../ui/SharedComponents";
+import { monthKey, todayIso } from "../../lib/format";
+import {
+  addMonthsToIsoDate,
+  isLoanPaidForMonth,
+  monthKeyFromIso,
+} from "../../lib/calculations";
+import { ViewTitle, StatusBadge } from "../ui/SharedComponents";
 import { StatPair, EmptyCard } from "../ui/SharedComponents";
 
 export function LoansView({
@@ -20,6 +25,7 @@ export function LoansView({
   const money = useMoney();
   const t = useT();
   const date = useDateFormatter();
+  const currentMonth = monthKey();
 
   const addLoan = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -95,34 +101,47 @@ export function LoansView({
       </Card>
 
       <Row xs={1} md={2} xl={3} className="g-3">
-        {data.loans.map((loan) => (
-          <Col key={loan.id}>
-            <Card className="h-100 shadow-sm">
-              <Card.Body>
-                <div className="d-flex justify-content-between gap-3 mb-3">
-                  <Card.Title className="mb-0 text-break">{loan.lender}</Card.Title>
-                  <StatusBadge status={loan.paidThisMonth ? "paid" : "due"} />
-                </div>
+        {data.loans.map((loan) => {
+          const paidThisMonth = isLoanPaidForMonth(loan, currentMonth);
+
+          return (
+            <Col key={loan.id}>
+              <Card className="h-100 shadow-sm">
+                <Card.Body>
+                  <div className="d-flex justify-content-between gap-3 mb-3">
+                    <Card.Title className="mb-0 text-break">{loan.lender}</Card.Title>
+                    <StatusBadge status={paidThisMonth ? "paid" : "due"} />
+                  </div>
                 <StatPair label={t("loans.balance")} value={money(loan.balance)} />
                 <StatPair label={t("loans.monthlyPayment")} value={money(loan.monthlyPayment)} />
                 <StatPair label={t("loans.due")} value={date(loan.nextDueDate)} />
                 <div className="d-flex flex-wrap gap-2 mt-3">
                   <Button
                     variant="outline-success"
+                    disabled={loan.balance <= 0 || paidThisMonth}
                     onClick={() =>
                       updateData((current) => ({
                         ...current,
-                        loans: current.loans.map((item) =>
-                          item.id === loan.id
-                            ? {
-                                ...item,
-                                paidThisMonth: !item.paidThisMonth,
-                                balance: item.paidThisMonth
-                                  ? item.balance + item.monthlyPayment
-                                  : Math.max(item.balance - item.monthlyPayment, 0),
-                              }
-                            : item,
-                        ),
+                        loans: current.loans.map((item) => {
+                          if (item.id !== loan.id) return item;
+                          const dueDate = item.nextDueDate || todayIso();
+                          const paidMonth = monthKeyFromIso(dueDate);
+                          if (item.lastPaidMonth === paidMonth) return item;
+                          return {
+                            ...item,
+                            paidThisMonth: paidMonth === currentMonth,
+                            lastPaidMonth: paidMonth,
+                            balance: Math.max(
+                              item.balance - Math.min(item.monthlyPayment, item.balance),
+                              0,
+                            ),
+                            nextDueDate: addMonthsToIsoDate(
+                              dueDate,
+                              1,
+                              item.dueDay,
+                            ),
+                          };
+                        }),
                       }))
                     }
                   >
@@ -147,10 +166,11 @@ export function LoansView({
                     <Icon name="trash" /> {t("common.delete")}
                   </Button>
                 </div>
-              </Card.Body>
-            </Card>
-          </Col>
-        ))}
+                </Card.Body>
+              </Card>
+            </Col>
+          );
+        })}
         {data.loans.length === 0 && (
           <Col>
             <EmptyCard text={t("loans.empty")} />

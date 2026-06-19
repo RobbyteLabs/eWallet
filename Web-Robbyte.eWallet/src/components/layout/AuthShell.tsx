@@ -1,11 +1,7 @@
-import { useState } from "react";
-import type { User } from "firebase/auth";
-import { Alert, Button, Form } from "react-bootstrap";
-import { views, authErrorMessage } from "../../utils";
+import { Alert, Card } from "react-bootstrap";
 import { Icon } from "./Icon";
 import { useT } from "../../contexts";
 import type { ReactNode } from "react";
-import { Card } from "react-bootstrap";
 
 export function AuthShell({
   children,
