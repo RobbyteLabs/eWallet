@@ -2,6 +2,8 @@ export type Currency = string;
 
 export type Language = "es" | "en" | "pt";
 
+export type Theme = "light" | "dark";
+
 export type ExpenseKind = "fixed" | "variable";
 
 export type Frequency = "monthly" | "once";
@@ -13,6 +15,7 @@ export interface UserSettings {
   currencyCountry?: string;
   currencyLocale?: string;
   language?: Language;
+  theme?: Theme;
   monthlyIncome: number;
   alertDaysBefore: number;
 }

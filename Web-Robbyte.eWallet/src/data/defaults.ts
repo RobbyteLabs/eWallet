@@ -6,6 +6,7 @@ export const defaultAppData: AppData = {
     currencyCountry: "PE",
     currencyLocale: "es-PE",
     language: "es",
+    theme: "light",
     monthlyIncome: 0,
     alertDaysBefore: 5,
   },

@@ -1,5 +1,5 @@
 ﻿import { Button, Card, Form, Row, Col } from "react-bootstrap";
-import type { AppData, Language, ConfirmOptions } from "../../types";
+import type { AppData, Language, Theme, ConfirmOptions } from "../../types";
 import type { FormEvent } from "react";
 import { toStringValue, toNumber } from "../../utils";
 import { Icon } from "../layout/Icon";
@@ -22,12 +22,14 @@ export function SettingsView({
     data.settings.currencyCountry,
   );
   const selectedLanguage = getLanguageOption(data.settings.language);
+  const selectedTheme = data.settings.theme || "light";
 
   const saveSettings = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const selectedCurrencyId = toStringValue(form.get("currencyOption"));
     const selectedLanguageCode = toStringValue(form.get("language")) as Language;
+    const nextTheme: Theme = form.get("darkMode") === "on" ? "dark" : "light";
     const nextCurrency =
       currencyOptions.find((option) => option.id === selectedCurrencyId) ||
       selectedCurrency;
@@ -41,6 +43,7 @@ export function SettingsView({
         currencyCountry: nextCurrency.countryCode,
         currencyLocale: nextCurrency.locale,
         language: nextLanguage.code,
+        theme: nextTheme,
         monthlyIncome: toNumber(form.get("monthlyIncome")),
         alertDaysBefore: toNumber(form.get("alertDaysBefore")),
       },
@@ -65,6 +68,24 @@ export function SettingsView({
                       </option>
                     ))}
                   </Form.Select>
+                </Form.Group>
+              </Col>
+              <Col md={6} xl={3}>
+                <Form.Group>
+                  <Form.Label>{t("settings.appearance")}</Form.Label>
+                  <div className="settings-theme-toggle">
+                    <Form.Check
+                      type="switch"
+                      id="darkMode"
+                      name="darkMode"
+                      defaultChecked={selectedTheme === "dark"}
+                      label={
+                        <>
+                          <Icon name="moon-stars" /> {t("settings.darkMode")}
+                        </>
+                      }
+                    />
+                  </div>
                 </Form.Group>
               </Col>
               <Col md={6} xl={4}>

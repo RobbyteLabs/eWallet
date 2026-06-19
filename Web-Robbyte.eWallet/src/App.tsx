@@ -76,6 +76,7 @@ export default function App() {
   const [alertToastKey, setAlertToastKey] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const activeTheme = data.settings.theme || "light";
   const languageOption = getLanguageOption(data.settings.language);
   const languageValue = useMemo(
     () => ({
@@ -100,6 +101,12 @@ export default function App() {
   const removeToast = (id: string) => {
     setToasts((current) => current.filter((toast) => toast.id !== id));
   };
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.setAttribute("data-bs-theme", activeTheme);
+    root.style.colorScheme = activeTheme;
+  }, [activeTheme]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
